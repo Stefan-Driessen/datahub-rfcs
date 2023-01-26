@@ -19,20 +19,34 @@ See Summary section.
 - Start with the slimmest model possible that accomplishes the MVP requirements. This will ensure that we broaden the model as we encounter new requirements versus over-designing it too early.
 
 ## MVP Requirements
-
+*Suggestions*
+- Model Data Product Entity
+- Model Ouptput Port Aspect or Entity
+- 
 TBD
-
 
 ## Emerging Consensus (Still up for debate)
 
-- Data Products are 1:N with DataHub's notion of Datasets both for input and output
-- There must be at least one output dataset for a Data Product
-- Logical Datasets (some people call them Polyglot Datasets) are important to model as part of this effort. A single Data Product might export multiple logical datasets where each logical dataset can have physical variants stored in different platforms and expose a slightly different technical schema (e.g Logical Dataset that can be consumed over Kafka or Athena)
+- Data Products are 1:N with DataHub's notion of Datasets and Datasets in Data Products can be N:N with other data products for both input and output.
+- Data Products are 1:N with input ports and output ports, there must be at least one output port for a Data Product.
+- Output ports expose one or more of the data products' data sets and are distinguished by schema + transport. 
+  - **Schema**: You can have multiple Kafka output ports each exposing a different schema (e.g., one with PII and another without PII). 
+  - **Transport**: You can expose multiple logical datasets where each logical dataset can have physical variants stored in different platforms and expose a slightly different technical schema (e.g Logical Dataset that can be consumed over Kafka or Athena).
 - Data Products can have a logical schema if they are encapsulating a single Logical Dataset with a common schema across the physical dataset variants, but in cases where an entire star schema is being represented as a Data Product, it might just be a collection of related datasets.
 
 
 ## Raw Discussion Log
+**0th Thread**
+Eric Yomi
+@Ray Suliteanu
+Thank you for sharing your thoughts on introducing a Data Product entity to datahub. I am new to this community and I read with great interest what you posted. I think the way you proposed to go about adding this feature makes sense to me and is inline with our expectations out in the fields. I am currently working on building Data Mesh platforms for our clients and what you described matches what we looking for. I would however make a couple of suggestions:
+- A data product has to have a least one dataset on its output ports. One of the key characteristics of a data product is that it has to be "Valuable on its own". A DP that produces nothing cannot be that.
+- I would definitely have dataProductProperties, dataProductUsageStatistics, and dataProductProfile for data products
 
+Ray Suliteanu
+Thanks Eric. Yes I agree that a data product must have an output port otherwise it is useless - it is an invalid configuration for a data product with no output port and that should be rejected by the platform. I hope I did not imply otherwise. At this point in time though, our progress is stalled due to various reasons so I expect others may end up getting “data product” into DataHub before we do, which is fine by me!
+
+**First Thread**
 Ray Suliteanu
 I will share details when we have them, but at a high level here is what we’ve been thinking/considering
 ![img](./Jumio-DataProductEntity.png)
@@ -84,7 +98,58 @@ To me a dataset can be an evolving collection of data, as long as records are im
 Eric Yomi
 https://github.com/ericyomi/datahub/tree/data-product-entity
 
+**Second Thread**
+Ray Suliteanu
+@Stefan Driessen thanks for the detailed input and feedback. Very helpful and interesting. At this stage of data mesh, all ideas are good ideas I think. I wanted to share a diagram I put together a few months back to describe to folks in my company a logical view of a data product. fwiw …
+ 
+Stefan Driessen
+Yeah, that's nice! So when we relate this to metadata and data catalogs/platforms like datahub, do you envision we should focus on describing the input ports and output ports? Are the input ports fundamentally different from the output ports or can we consider them to be output ports of other data products? I imagine control interfaces exist mostly for the data provider/data product developer and maybe some federated governance team and don't require a lot of metadata?
+ 
+Ray Suliteanu
+My view is that a “Data Product” is a tier 1 entity; people discover “data products” not ports; ports are aspects of data products, and are searchable, but the result is a list of data products that match … “find me any data product with Kafka output ports with ‘account’ data”
 
+Ray Suliteanu
+I also kind of look at data products vs data sets as the difference between a ‘class’ and a ‘struct’, the former having behavior and encapsulation while the latter just (public) data
+
+Ray Suliteanu
+also I’m using the terminology from Zhamak Dehghani and here Data Mesh book when I’m talking about input/output/control ports. The Control Port logical concept is that a data product exposes standard API(s) to e.g. control policies and compliance; one might be an API to implement a ‘delete’ operation in support of ‘right to be forgotten’ - if an end user of a business asks for their data to be deleted the business can propagate the request to the data mesh which broadcasts this to all data products via the control port API that they all implement
+
+Stefan Driessen
+*"My view is that a “Data Product” is a tier 1 entity; people discover “data products” not ports; ports are aspects of data products, and are searchable, but the result is a list of data products that match … “find me any data product with Kafka output ports with ‘account’ data”"*
+
+I agree with this sentiment, people discover data products not ports. However, metadata and data catalogs are not just about Discovery, it helps with all aspects of DAUTNIVS, and in particular Addressability and Understandability. If I find a data product entity in my datahub data catalog, I also want to understand how to get to the data (i.e., which output ports are there, which one is relevant for me, and how do I address those). So I reckon we also need to describe these (even if they are not tier 1 entities).
+
+Stefan Driessen
+I'm personally less interested in describing the control ports initially as I feel these don't need to live on a data catalog. Am interested to hear if you agree.
+
+**Third Thread**
+Ray Suliteanu
+by multimodal I mean different transports e.g. files, streams, HTTP, etc. and potentially different wire formats e.g. Kafka port w/Protobuf vs a HTTP port w/JSON
+
+Stefan Driessen
+So do you envision a single output port for each transport? Or are the output ports themselves multimodal?
+
+Ray Suliteanu
+Output ports are distinguished by schema+transport so you can have multiple Kafka output ports say, each exposing a different schema e.g. as you were suggesting one could have a port that exposes PII data and another without PII data, which are different schemas
+
+Shirshanka Das
+Great discussions so far, and apologies for jumping in a bit late. Question on the "schema" aspect of Data Products and Output Ports in your minds. Does the data product have a schema? Since the output ports have an attached schema that more accurately describes the structure of the API for technical consumption, I'm curious what your thoughts are on the need and consumption model (human versus machines) for the data product schema if that exists.
+
+Stefan Driessen
+For me, data products don't need to have a schema. Especially if the different output ports have different schemas, it makes more sense to explain how these schemas relate to each other. I suppose if we had a data product with different output ports that fell under a single schema, we could describe the schema on the data product level but then I wonder what the benefit would be for doing that if we also provide schemas at the output port levels.
+
+As for human vs machine consumption, I think data products are almost always created for easy human consumption. If we think about DAUTNIVS (Discoverable, Accessible, Understandable Truthful, Natively accessible, Interoperable, Valuable, Secure) I find it hard to imagine machines that are capable of truly discovering and understanding data products (unless we're talking advanced AI's).
+
+Ray Suliteanu
+My original “grand vision” was that a data product did have a single semantic (logical) schema and the output ports simply provided a specific syntactical (physical) schema. Then based on RBAC a consumer would either get or not get sensitive data - it would be automatically filtered by the platform transparently to both data product and data product consumer. I also think that data products are actual physical implementations - a microservice for data conforming to a schema, served up for consumption in whatever formats that the data product owner wants to provide to its customers. That said, there is also of course a human aspect e.g. discovery doesn’t need to be automated - a human finds what data products are available and decides to use them, building a new data product and configuring it with the unique identifier of each data product it’s going to use (if building a data product was the point of discovery).
+
+Of course this all evolves for me the more I learn and think on it :slightly_smiling_face:
+
+Shirshanka Das
+Making schemas optional but possible seems to support both ideas. A data product that is simply a wrapper around one or more “schema-aligned” data assets versus a data product that is a container of “use-case aligned” data assets.
+
+Stefan Driessen
+It seems to me that that's the right way to approach the metadata aspect of data products versus ports. Make it easy to describe those aspects that are the same across all ports (could even be income ports, outcome ports, control ports, discovery ports) but also allow the data provider to specify what is different across the ports.
 
 ### Extensibility
 
